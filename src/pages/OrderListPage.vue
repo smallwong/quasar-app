@@ -10,6 +10,7 @@
           </q-icon>
         </template>
       </q-input>
+
       <q-select
         standout
         outlined
@@ -33,7 +34,7 @@
 
     <q-table
       title="Order List"
-      :rows="paginatedOrders"
+      :rows="orders"
       :columns="columns"
       row-key="id"
       selection="multiple"
@@ -92,7 +93,6 @@
             v-model="pagination.rowsPerPage"
             :options="pageSizeOptions"
             label="每頁顯示筆數"
-            @update:model-value="updatePagination"
             class="q-mr-sm"
           />
 
@@ -108,6 +108,7 @@
             max-pages="5"
             dense
             class="q-mr-sm"
+            style="display: none"
           />
 
           <!-- 顯示總筆數 -->
@@ -135,11 +136,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import type { IOrder } from 'src/interface/order';
-import api from 'src/utils/api';
 import { useRouter } from 'vue-router';
 import { tokenExpired } from 'src/utils/errorhandle';
+import { getOrder } from 'src/utils/order';
 
 const router = useRouter();
 
@@ -170,37 +171,30 @@ const pagination = ref({
 // 每頁筆數選項
 const pageSizeOptions = [5, 10, 20, 50, 100];
 
-// 計算根據分頁篩選過的訂單
-const paginatedOrders = computed(() => {
-  const start = (pagination.value.page - 1) * pagination.value.rowsPerPage;
-  const end = start + pagination.value.rowsPerPage;
-  return filteredOrders.value.slice(start, end);
-});
+const fetchOrders = async () => {
+  try {
+    const payload = {
+      city: [selectedCity.value],
+      order_status: selectedOrderStatus.value?.value,
+      delivery_date: selectedDate?.value || undefined,
+      page: pagination.value.page,
+      size: pagination.value.rowsPerPage,
+    };
+    const response = await getOrder(payload);
 
-const updatePagination = () => {
-  // 重新計算總頁數時觸發
-  pagination.value.page = 1;
+    orders.value = response.data.content.map((list: IOrder) => ({ ...list, delivery: true }));
+    pagination.value.rowsNumber = response.data.size || response.data.content.length;
+  } catch (error: unknown) {
+    const isTokenExpired = tokenExpired(error);
+    if (isTokenExpired) {
+      await router.push('/login');
+    }
+  }
 };
-
-const cityOptions = computed(() => {
-  const cities = orders.value.map((order) => order.city);
-  return [...new Set(cities.filter(Boolean))];
-});
 
 const selectedCity = ref('');
 const selectedDate = ref('');
 const selectedOrderStatus = ref<{ label: string; value: string } | null>(null);
-
-const filteredOrders = computed(() => {
-  return orders.value.filter((order) => {
-    const matchCity = !selectedCity.value || order.city === selectedCity.value; // 縣市
-    const matchStatus =
-      !selectedOrderStatus.value || order.order_status === selectedOrderStatus.value.value; // 訂單狀態
-    const matchDate = !selectedDate.value || order.delivery_date === selectedDate.value; // 日期
-
-    return matchCity && matchStatus && matchDate;
-  });
-});
 
 const handleCheckboxChange = (checked: boolean, row: IOrder) => {
   const index = selectedRows.value.findIndex((r) => r.id === row.id);
@@ -212,28 +206,21 @@ const handleCheckboxChange = (checked: boolean, row: IOrder) => {
   }
 };
 
+const cityOptions = ref<string[]>(['台中市', '台南市', '台北市', '新北市', '高雄市']);
 const orderStatusOptions = [
   { label: '已開啟', value: 'open' },
   { label: '已取消', value: 'cancelled' },
 ];
 
-onMounted(async () => {
-  try {
-    const response = await api.get('orders');
+onMounted(fetchOrders);
 
-    orders.value = response.data.content.map((list: IOrder) => ({ ...list, delivery: true }));
-    pagination.value.rowsNumber = response.data.size || response.data.content.length;
-  } catch (error: unknown) {
-    const isTokenExpired = tokenExpired(error);
-    if (isTokenExpired) {
-      await router.push('/login');
-    }
-  }
+watch([selectedCity, selectedOrderStatus, selectedDate], async () => {
+  pagination.value.page = 1; // 每次篩選要重設回第 1 頁
+  await fetchOrders();
 });
 
-watch(filteredOrders, (newVal) => {
-  pagination.value.rowsNumber = newVal.length;
-});
+watch(() => pagination.value.page, fetchOrders);
+watch(() => pagination.value.rowsPerPage, fetchOrders);
 </script>
 <style scoped>
 .q-mr-sm {
