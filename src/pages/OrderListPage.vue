@@ -40,6 +40,16 @@
         class="q-mr-sm q-mb-sm select-w"
         dense
       />
+
+      <q-select
+        standout
+        outlined
+        v-model="selectedFulfillmentStatus"
+        :options="fulfillmentOptions"
+        label="出貨狀態"
+        class="q-mr-sm q-mb-sm select-w"
+        dense
+      />
     </div>
 
     <q-table
@@ -77,7 +87,7 @@
               {{ orderStatusName(props.row.order_status) }} /
               {{ financialStatusName(props.row.financial_status) }}
             </div>
-            {{ props.row.fulfillment_status }} /
+            {{ fulfillmentStatusName(props.row.fulfillment_status) }} /
           </q-td>
           <q-td>
             <div v-if="props.row.delivery">
@@ -153,7 +163,12 @@ import { ref, onMounted, watch } from 'vue';
 import type { IOrder } from 'src/interface/order';
 import { useRouter } from 'vue-router';
 import { tokenExpired } from 'src/utils/errorhandle';
-import { getOrder, orderStatusName, financialStatusName } from 'src/utils/order';
+import {
+  getOrder,
+  orderStatusName,
+  financialStatusName,
+  fulfillmentStatusName,
+} from 'src/utils/order';
 
 const router = useRouter();
 
@@ -192,6 +207,10 @@ const payOptions = [
   { label: '已收到款項', value: 'paid' },
   { label: '未收到款項', value: 'pending' },
 ];
+const fulfillmentOptions = [
+  { label: '已收貨', value: 'received' },
+  { label: '未出貨', value: 'preparing' },
+];
 
 const fetchOrders = async () => {
   try {
@@ -200,6 +219,7 @@ const fetchOrders = async () => {
       city: [selectedCity.value],
       order_status: selectedOrderStatus.value?.value,
       financial_status: selectedPayStatus.value?.value,
+      fulfillment_status: selectedFulfillmentStatus.value?.value,
       page: pagination.value.page,
       size: pagination.value.rowsPerPage,
     };
@@ -219,6 +239,7 @@ const selectedCity = ref('');
 const selectedDate = ref('');
 const selectedOrderStatus = ref<{ label: string; value: string } | null>(null);
 const selectedPayStatus = ref<{ label: string; value: string } | null>(null);
+const selectedFulfillmentStatus = ref<{ label: string; value: string } | null>(null);
 
 const handleCheckboxChange = (checked: boolean, row: IOrder) => {
   const index = selectedRows.value.findIndex((r) => r.id === row.id);
@@ -232,10 +253,13 @@ const handleCheckboxChange = (checked: boolean, row: IOrder) => {
 
 onMounted(fetchOrders);
 
-watch([selectedDate, selectedCity, selectedOrderStatus, selectedPayStatus], async () => {
-  pagination.value.page = 1; // 每次篩選要重設回第 1 頁
-  await fetchOrders();
-});
+watch(
+  [selectedDate, selectedCity, selectedOrderStatus, selectedPayStatus, selectedFulfillmentStatus],
+  async () => {
+    pagination.value.page = 1; // 每次篩選要重設回第 1 頁
+    await fetchOrders();
+  },
+);
 
 watch(() => pagination.value.page, fetchOrders);
 watch(() => pagination.value.rowsPerPage, fetchOrders);

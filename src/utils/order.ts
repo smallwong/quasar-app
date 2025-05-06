@@ -26,3 +26,14 @@ export const financialStatusName = (status: string) => {
       break;
   }
 };
+
+export const fulfillmentStatusName = (status: string) => {
+  switch (status) {
+    case 'received':
+      return '已出貨';
+    case 'preparing':
+      return '未出貨';
+    default:
+      break;
+  }
+};
