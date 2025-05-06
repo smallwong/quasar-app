@@ -136,8 +136,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import axios from 'axios';
 import type { IOrder } from 'src/interface/order';
+import api from 'src/utils/api';
+import { useRouter } from 'vue-router';
+import axios from 'axios';
+
+const router = useRouter();
 
 const orders = ref<IOrder[]>([]);
 const selectedRows = ref<IOrder[]>([]);
@@ -184,6 +188,8 @@ const cityOptions = computed(() => {
 });
 
 const selectedCity = ref('');
+const selectedDate = ref('');
+const selectedOrderStatus = ref<{ label: string; value: string } | null>(null);
 
 const filteredOrders = computed(() => {
   return orders.value.filter((order) => {
@@ -206,32 +212,24 @@ const handleCheckboxChange = (checked: boolean, row: IOrder) => {
   }
 };
 
-const selectedDate = ref('');
-
 const orderStatusOptions = [
   { label: '已開啟', value: 'open' },
   { label: '已取消', value: 'cancelled' },
 ];
-const selectedOrderStatus = ref<{ label: string; value: string } | null>(null);
 
 onMounted(async () => {
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.error('Token is missing!');
-      return;
-    }
-
-    const response = await axios.get('https://dev.tapgo.cc/test/orders', {
-      headers: {
-        Authorization: token,
-      },
-    });
+    const response = await api.get('orders');
 
     orders.value = response.data.content.map((list: IOrder) => ({ ...list, delivery: true }));
     pagination.value.rowsNumber = response.data.size || response.data.content.length;
-  } catch (error) {
-    console.error('Error fetching orders:', error);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error) && error.response) {
+      const status = error.response.status;
+      if (status === 401) {
+        await router.push('/login');
+      }
+    }
   }
 });
 

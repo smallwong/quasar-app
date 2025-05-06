@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import api from 'src/utils/api';
 
 const username = ref('');
 const password = ref('');
@@ -36,7 +36,7 @@ const login = async () => {
   loading.value = true;
 
   try {
-    const res = await axios.post('https://dev.tapgo.cc/test/auth/login', {
+    const res = await api.post('auth/login', {
       username: username.value,
       password: password.value,
     });
