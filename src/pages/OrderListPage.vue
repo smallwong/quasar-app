@@ -30,6 +30,16 @@
         class="q-mr-sm q-mb-sm select-w"
         dense
       />
+
+      <q-select
+        standout
+        outlined
+        v-model="selectedPayStatus"
+        :options="payOptions"
+        label="付款狀態"
+        class="q-mr-sm q-mb-sm select-w"
+        dense
+      />
     </div>
 
     <q-table
@@ -63,7 +73,10 @@
             {{ props.row.created_at }}
           </q-td>
           <q-td>
-            <div>{{ props.row.order_status }} / {{ props.row.financial_status }}</div>
+            <div>
+              {{ orderStatusName(props.row.order_status) }} /
+              {{ financialStatusName(props.row.financial_status) }}
+            </div>
             {{ props.row.fulfillment_status }} /
           </q-td>
           <q-td>
@@ -140,7 +153,7 @@ import { ref, onMounted, watch } from 'vue';
 import type { IOrder } from 'src/interface/order';
 import { useRouter } from 'vue-router';
 import { tokenExpired } from 'src/utils/errorhandle';
-import { getOrder } from 'src/utils/order';
+import { getOrder, orderStatusName, financialStatusName } from 'src/utils/order';
 
 const router = useRouter();
 
@@ -170,13 +183,23 @@ const pagination = ref({
 
 // 每頁筆數選項
 const pageSizeOptions = [5, 10, 20, 50, 100];
+const cityOptions = ref<string[]>(['台中市', '台南市', '台北市', '新北市', '高雄市']);
+const orderStatusOptions = [
+  { label: '已開啟', value: 'open' },
+  { label: '已取消', value: 'cancelled' },
+];
+const payOptions = [
+  { label: '已收到款項', value: 'paid' },
+  { label: '未收到款項', value: 'pending' },
+];
 
 const fetchOrders = async () => {
   try {
     const payload = {
+      delivery_date: selectedDate?.value || undefined,
       city: [selectedCity.value],
       order_status: selectedOrderStatus.value?.value,
-      delivery_date: selectedDate?.value || undefined,
+      financial_status: selectedPayStatus.value?.value,
       page: pagination.value.page,
       size: pagination.value.rowsPerPage,
     };
@@ -195,6 +218,7 @@ const fetchOrders = async () => {
 const selectedCity = ref('');
 const selectedDate = ref('');
 const selectedOrderStatus = ref<{ label: string; value: string } | null>(null);
+const selectedPayStatus = ref<{ label: string; value: string } | null>(null);
 
 const handleCheckboxChange = (checked: boolean, row: IOrder) => {
   const index = selectedRows.value.findIndex((r) => r.id === row.id);
@@ -206,15 +230,9 @@ const handleCheckboxChange = (checked: boolean, row: IOrder) => {
   }
 };
 
-const cityOptions = ref<string[]>(['台中市', '台南市', '台北市', '新北市', '高雄市']);
-const orderStatusOptions = [
-  { label: '已開啟', value: 'open' },
-  { label: '已取消', value: 'cancelled' },
-];
-
 onMounted(fetchOrders);
 
-watch([selectedCity, selectedOrderStatus, selectedDate], async () => {
+watch([selectedDate, selectedCity, selectedOrderStatus, selectedPayStatus], async () => {
   pagination.value.page = 1; // 每次篩選要重設回第 1 頁
   await fetchOrders();
 });
