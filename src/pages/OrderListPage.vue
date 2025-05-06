@@ -139,7 +139,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import type { IOrder } from 'src/interface/order';
 import api from 'src/utils/api';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import { tokenExpired } from 'src/utils/errorhandle';
 
 const router = useRouter();
 
@@ -224,11 +224,9 @@ onMounted(async () => {
     orders.value = response.data.content.map((list: IOrder) => ({ ...list, delivery: true }));
     pagination.value.rowsNumber = response.data.size || response.data.content.length;
   } catch (error: unknown) {
-    if (axios.isAxiosError(error) && error.response) {
-      const status = error.response.status;
-      if (status === 401) {
-        await router.push('/login');
-      }
+    const isTokenExpired = tokenExpired(error);
+    if (isTokenExpired) {
+      await router.push('/login');
     }
   }
 });
